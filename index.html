@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimal-ui">
+  <title>Car Dodger X</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #121212;
+      color: white;
+      text-align: center;
+      margin: 0;
+    }
+
+    #gameArea {
+      position: relative;
+      margin: 0 auto;
+      background: url('https://i.imgur.com/1hXY3eA.jpg') no-repeat center center; /* Background fixed */
+      background-size: cover;
+      border: 4px solid white;
+      overflow: hidden;
+      width: 100%;
+      height: 80vh;
+      max-width: 500px;
+      display: none;
+    }
+
+    .car {
+      position: absolute;
+      width: 20vw;
+      height: 30vh;
+      bottom: 10px;
+    }
+
+    .enemy {
+      position: absolute;
+      width: 20vw;
+      height: 30vh;
+      top: -120px;
+    }
+
+    #score, #level {
+      font-size: 1.5rem;
+      margin-top: 10px;
+    }
+
+    #startScreen {
+      margin-top: 50px;
+    }
+
+    .car-option {
+      cursor: pointer;
+      display: inline-block;
+      margin: 0 10px;
+    }
+
+    .car-option img {
+      width: 25vw;
+      max-width: 120px;
+      height: auto;
+      border: 2px solid transparent;
+      transition: transform 0.2s;
+    }
+
+    .car-option img.selected {
+      border-color: yellow;
+      transform: scale(1.1);
+    }
+
+    #startBtn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+
+    /* Mobile friendly adjustments */
+    @media (max-width: 600px) {
+      .car {
+        width: 25vw;
+        height: 35vh;
+      }
+
+      .enemy {
+        width: 25vw;
+        height: 35vh;
+      }
+
+      #gameArea {
+        height: 70vh;
+      }
+
+      #leftButton, #rightButton {
+        position: absolute;
+        bottom: 20px;
+        width: 40%;
+        height: 10vh;
+        font-size: 2rem;
+        color: white;
+        background-color: rgba(0, 0, 0, 0.5);
+        border: none;
+        cursor: pointer;
+        border-radius: 10px;
+      }
+
+      #leftButton {
+        left: 10%;
+      }
+
+      #rightButton {
+        right: 10%;
+      }
+    }
+
+    /* Landscape mode only */
+    @media (orientation: portrait) {
+      body {
+        display: none;
+      }
+      .landscape-message {
+        display: block;
+        font-size: 2rem;
+        color: white;
+        background-color: #121212;
+        padding: 20px;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Landscape Warning -->
+  <div class="landscape-message" style="display: none;">
+    Please rotate your device to play in landscape mode!
+  </div>
+
+  <div id="startScreen">
+    <h1>🚗 Choose Your Car</h1>
+    <div id="carSelection">
+      <div class="car-option" data-src="https://i.imgur.com/O7pzVHE.png">
+        <img src="https://i.imgur.com/O7pzVHE.png" class="selected" alt="Player Car 1">
+      </div>
+      <div class="car-option" data-src="https://i.imgur.com/0Z8ZoeU.png">
+        <img src="https://i.imgur.com/0Z8ZoeU.png" alt="Player Car 2">
+      </div>
+      <div class="car-option" data-src="https://i.imgur.com/HO8R7Db.png">
+        <img src="https://i.imgur.com/HO8R7Db.png" alt="Player Car 3">
+      </div>
+    </div>
+    <button id="startBtn">Start Game</button>
+  </div>
+
+  <div id="score" style="display:none;">Score: 0</div>
+  <div id="level" style="display:none;">Level: 1</div>
+  <div id="gameArea"></div>
+
+  <!-- Background Music -->
+  <audio id="bgMusic" loop autoplay>
+    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mp3">
+    Your browser does not support the audio element.
+  </audio>
+
+  <!-- Collision Sound -->
+  <audio id="collisionSound">
+    <source src="https://www.soundjay.com/button/beep-07.wav" type="audio/wav">
+    Your browser does not support the audio element.
+  </audio>
+
+  <!-- Level Up Sound -->
+  <audio id="levelUpSound">
+    <source src="https://www.soundjay.com/button/beep-08b.wav" type="audio/wav">
+    Your browser does not support the audio element.
+  </audio>
+
+  <script>
+    const gameArea = document.getElementById("gameArea");
+    const startScreen = document.getElementById("startScreen");
+    const scoreDisplay = document.getElementById("score");
+    const levelDisplay = document.getElementById("level");
+    const carOptions = document.querySelectorAll(".car-option img");
+    const startBtn = document.getElementById("startBtn");
+
+    const bgMusic = document.getElementById("bgMusic");
+    const collisionSound = document.getElementById("collisionSound");
+    const levelUpSound = document.getElementById("levelUpSound");
+
+    let playerCar;
+    let playerCarSrc = carOptions[0].src;
+    let score = 0;
+    let level = 1;
+    let gameRunning = true;
+    let speed = 5;
+
+    carOptions.forEach(car => {
+      car.addEventListener("click", () => {
+        carOptions.forEach(c => c.classList.remove("selected"));
+        car.classList.add("selected");
+        playerCarSrc = car.src;
+      });
+    });
+
+    startBtn.addEventListener("click", () => {
+      startScreen.style.display = "none";
+      gameArea.style.display = "block";
+      scoreDisplay.style.display = "block";
+      levelDisplay.style.display = "block";
+      startGame();
+    });
+
+    function startGame() {
+      playerCar = document.createElement("img");
+      playerCar.src = playerCarSrc;
+      playerCar.classList.add("car");
+      playerCar.style.left = "40%"; // Center car
+      gameArea.appendChild(playerCar);
+      gameRunning = true;
+      document.addEventListener("keydown", moveCar);
+      setInterval(() => { if (gameRunning) createEnemy(); }, 1500);
+    }
+
+    function moveCar(e) {
+      const left = parseInt(playerCar.style.left);
+      if (e.key === "ArrowLeft" && left > 0) {
+        playerCar.style.left = (left - 20) + "px";
+      } else if (e.key === "ArrowRight" && left < gameArea.clientWidth - 50) {
+        playerCar.style.left = (left + 20) + "px";
+      }
+    }
+
+    // Mobile controls
+    document.getElementById("leftButton")?.addEventListener("click", () => {
+      const left = parseInt(playerCar.style.left);
+      if (left > 0) playerCar.style.left = (left - 20) + "px";
+    });
+
+    document.getElementById("rightButton")?.addEventListener("click", () => {
+      const left = parseInt(playerCar.style.left);
+      if (left < gameArea.clientWidth - 50) playerCar.style.left = (left + 20) + "px";
+    });
+
+    function createEnemy() {
+      const enemy = document.createElement("img");
+      enemy.src = "https://i.imgur.com/Xq2eF4L.png";  // Enemy car image
+      enemy.classList.add("enemy");
+      enemy.style.left = Math.random() * (gameArea.clientWidth - 50) + "px";
+      gameArea.appendChild(enemy);
+
+      let pos = -120;
+      const interval = setInterval(() => {
+        if (!gameRunning) return clearInterval(interval);
+        pos += speed;
+        enemy.style.top = pos + "px";
+
+        // Collision detection
+        const enemyX = enemy.offsetLeft;
+        const enemyY = enemy.offsetTop;
+        const playerX = playerCar.offsetLeft;
+        const playerY = playerCar.offsetTop;
+
+        if (
+          enemyY + 100 >= playerY &&
+          enemyY <= playerY + 100 &&
+          enemyX < playerX + 50 &&
+          enemyX + 50 > playerX
+        ) {
+          gameRunning = false;
+          collisionSound.play();  // Play collision sound
+          alert("💥 Crash! Game Over.\nScore: " + score);
+          location.reload();
+        }
+
+        if (pos > gameArea.clientHeight) {
+          enemy.remove();
+          score++;
+          scoreDisplay.innerText = "Score: " + score;
+          checkLevelUp();
+          clearInterval(interval);
+        }
+      }, 30);
+    }
+
+    function checkLevelUp() {
+      if (score % 10 === 0) {
+        level++;
+        levelDisplay.innerText = "Level: " + level;
+        levelUpSound.play();  // Play level-up sound
+        speed += 1;
+      }
+    }
+
+    // Landscape Mode Detection
+    window.addEventListener("resize", function () {
+      if (window.innerWidth < window.innerHeight) {
+        document.querySelector(".landscape-message").style.display = "block";
+        gameArea.style.display = "none";
+        scoreDisplay.style.display = "none";
+        levelDisplay.style.display = "none";
+      } else {
+        document.querySelector(".landscape-message").style.display = "none";
+        if (gameRunning) {
+          gameArea.style.display = "block";
+          scoreDisplay.style.display = "block";
+          levelDisplay.style.display = "block";
+        }
+      }
+    });
+
+  </script>
+</body>
+</html>
